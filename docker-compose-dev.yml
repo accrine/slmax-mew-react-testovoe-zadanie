@@ -1,0 +1,169 @@
+# services:
+#   # Database service
+#   database:
+#     image: postgres:16.4
+#     container_name: "next-tz-db_${PROJECT_ENV}"
+#     networks:
+#       - internal
+#     volumes:
+#       - postgres-db:/var/lib/postgresql/data
+#     restart: always
+#     environment:
+#       POSTGRES_DB: ${DATABASE_DB}
+#       POSTGRES_USER: ${DATABASE_USER}
+#       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+#       POSTGRES_PORT: ${DATABASE_PORT}
+#     ports:
+#       - "${DATABASE_PORT}:${DATABASE_PORT}"
+#   # Strapi service
+#   strapi:
+#     build:
+#       context: ./strapi
+#       target: ${PROJECT_ENV}
+#     container_name: "next-tz-strapi_${PROJECT_ENV}"
+#     networks:
+#       - external
+#       - internal
+#     depends_on:
+#       - database
+#     volumes:
+#       - ./strapi/config:/opt/app/config
+#       - ./strapi/src:/opt/app/src
+#       - ./strapi/package.json:/opt/package.json
+#       - ./strapi/package.lock:/opt/package.lock
+#     environment:
+#       HOST: ${STRAPI_DOMAIN}
+#       PORT: ${STRAPI_PORT}
+#       PROJECT_ENV: ${PROJECT_ENV}
+#       DATABASE_CLIENT: "postgres"
+#       DATABASE_HOST: ${DATABASE_HOST}
+#       DATABASE_USERNAME: ${DATABASE_USER}
+#       DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+#       DATABASE_PORT: ${DATABASE_PORT}
+#       DATABASE_NAME: ${DATABASE_DB}
+#     ports:
+#       - "${STRAPI_PORT}:${STRAPI_PORT}"
+#     entrypoint: [ "npm", "run", "develop" ]
+#   # Frontend service
+#   frontend:
+#     build:
+#       context: ./frontend
+#       target: ${PROJECT_ENV}
+#     container_name: "next-tz-frontend_${PROJECT_ENV}"
+#     networks:
+#       - external
+#     depends_on:
+#       - strapi
+#     volumes:
+#       - ./frontend/:/usr/src/app/
+#       - frontend-node-modules:/usr/src/app/node_modules/
+#     environment:
+#       PORT: ${FRONTEND_PORT}
+#       FRONTEND_DOMAIN: ${FRONTEND_DOMAIN}"
+#     ports:
+#       - "${FRONTEND_PORT}:${FRONTEND_PORT}"
+#     entrypoint: [ "npm", "run", "dev" ]
+
+# volumes:
+#   postgres-db:
+#     name: next-tz-db_${PROJECT_ENV}
+#   # strapi-node-modules:
+#   #   name: next-tz-strapi-node-modules_${PROJECT_ENV}
+#   # frontend-node-modules:
+#   #   name: next-tz-frontend-node-modules_${PROJECT_ENV}
+
+# networks:
+#   internal:
+#     name: next-tz-internal-network_${PROJECT_ENV}
+#     driver: bridge
+#   external:
+#     name: next-tz-external-network_${PROJECT_ENV}
+#     driver: bridge
+services:
+  # Strapi service
+  strapi:
+    container_name: "next-tz-strapi_${PROJECT_ENV}"
+    build:
+      context: ./strapi
+      target: ${PROJECT_ENV}
+    restart: unless-stopped
+    environment:
+      DATABASE_CLIENT: ${DATABASE_CLIENT}
+      DATABASE_HOST: database
+      DATABASE_NAME: ${DATABASE_NAME}
+      DATABASE_USERNAME: ${DATABASE_USERNAME}
+      DATABASE_PORT: ${DATABASE_PORT}
+      TRANSFER_TOKEN_SALT: ${TRANSFER_TOKEN_SALT}
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      APP_KEYS: ${APP_KEYS}
+      PORT: ${STRAPI_PORT}
+      API_TOKEN_SALT: ${API_TOKEN_SALT}
+      FRONTEND_DOMAIN: ${FRONTEND_DOMAIN}"
+    volumes:
+      - ./strapi/config:/opt/app/config
+      - ./strapi/src:/opt/app/src
+      - ./strapi/package.json:/opt/package.json
+      - ./strapi/package.lock:/opt/package.lock
+      - strapi-uploads:/opt/app/public/uploads
+    ports:
+      - "${STRAPI_PORT}:${STRAPI_PORT}"
+    networks:
+      - internal
+      - external
+    depends_on:
+      - database
+    entrypoint: [ "npm", "run", "develop" ]
+
+  database:
+    image: postgres:12.0-alpine
+    container_name: database
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DATABASE_USERNAME}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME}
+    volumes:
+      - postgres-db:/var/lib/postgresql/data
+    ports:
+      - "${DATABASE_PORT}:${DATABASE_PORT}"
+    networks:
+      - internal
+  # Frontend service
+  frontend:
+    build:
+      context: ./frontend
+      target: ${PROJECT_ENV}
+    container_name: "next-tz-frontend_${PROJECT_ENV}"
+    depends_on:
+      - strapi
+    networks:
+      - external
+    volumes:
+      - ./frontend/:/usr/src/app/
+      - frontend-node-modules:/usr/src/app/node_modules/
+    environment:
+      PORT: ${FRONTEND_PORT}
+      NEXT_PUBLIC_FRONTEND_DOMAIN: ${FRONTEND_DOMAIN}"
+      NEXT_PUBLIC_STRAPI_DOMAIN: strapi:${STRAPI_PORT}
+      NEXT_PUBLIC_PROJECT_ENV: ${PROJECT_ENV}
+    ports:
+      - "${FRONTEND_PORT}:${FRONTEND_PORT}"
+    entrypoint: [ "npm", "run", "dev" ]
+
+volumes:
+  postgres-db:
+    name: next-tz-db_${PROJECT_ENV}
+  strapi-uploads:
+    name: next-tz-strapi-uploads_${PROJECT_ENV}
+  frontend-node-modules:
+    name: next-tz-frontend-node-modules_${PROJECT_ENV}
+
+networks:
+  internal:
+    name: next-tz-internal-network_${PROJECT_ENV}
+    driver: bridge
+  external:
+    name: next-tz-external-network_${PROJECT_ENV}
+    driver: bridge
